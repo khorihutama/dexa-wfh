@@ -1,0 +1,38 @@
+{
+  "name": "@dexa-wfh/api-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc --watch -p tsconfig.json",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "pnpm run build && node --test test/gateway.spec.mjs"
+  },
+  "dependencies": {
+    "@dexa-wfh/common": "workspace:*",
+    "@dexa-wfh/config": "workspace:*",
+    "@nestjs/axios": "^4.0.0",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/platform-socket.io": "^11.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "@nestjs/websockets": "^11.0.0",
+    "amqplib": "^0.10.5",
+    "axios": "^1.7.9",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@dexa-wfh/eslint-config": "workspace:*",
+    "@dexa-wfh/tsconfig": "workspace:*",
+    "@types/amqplib": "^0.10.6",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.19.0",
+    "typescript": "^5.7.3"
+  }
+}
