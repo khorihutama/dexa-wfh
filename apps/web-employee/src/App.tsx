@@ -1,137 +1,314 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Input } from '@dexa-wfh/ui';
-
-interface ServiceHealth {
-  service: string;
-  status: 'ok' | 'degraded' | 'down';
-  timestamp?: string;
-  uptime?: number;
-  error?: string;
-  dependencies?: Record<string, { status: 'up' | 'down'; message?: string }>;
-}
-
-interface AllHealthResponse {
-  gateway: ServiceHealth;
-  services: Record<string, ServiceHealth>;
-  overallStatus: 'ok' | 'degraded' | 'down';
-  timestamp: string;
-}
-
-const DEFAULT_GATEWAY_URL =
-  (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_GATEWAY_URL ??
-  'http://localhost:3000';
+import { Alert, Button, Spinner } from '@dexa-wfh/ui';
+import {
+  ApiError,
+  AttendanceActionResponse,
+  checkInAttendance,
+  checkOutAttendance,
+  clearStoredToken,
+  DailyAttendanceSummaryItem,
+  EmployeeProfile,
+  fetchMyAttendanceSummary,
+  fetchMyProfile,
+  fetchTodayAttendance,
+  getJakartaDateString,
+  getJakartaMonthStartString,
+  getStoredToken,
+  loginEmployee,
+  setStoredToken,
+  TodayAttendanceStatus,
+  UpdateMyProfilePayload,
+  UpdateMyProfileResponse,
+  updateMyProfile,
+} from './api';
+import { AttendanceView } from './components/AttendanceView';
+import { LoginView } from './components/LoginView';
+import { EmployeeMenuTab, PortalLayout } from './components/PortalLayout';
+import { ProfileView } from './components/ProfileView';
+import { SummaryView } from './components/SummaryView';
 
 export const App: React.FC = () => {
-  const [gatewayUrl, setGatewayUrl] = useState(DEFAULT_GATEWAY_URL);
-  const [health, setHealth] = useState<AllHealthResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(() => getStoredToken());
+  const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<EmployeeMenuTab>('attendance');
 
-  const fetchHealth = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/health/all`);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+  const [authLoading, setAuthLoading] = useState<boolean>(() => Boolean(getStoredToken()));
+  const [loginLoading, setLoginLoading] = useState<boolean>(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const [todayStatus, setTodayStatus] = useState<TodayAttendanceStatus | null>(null);
+  const [loadingToday, setLoadingToday] = useState<boolean>(false);
+  const [todayError, setTodayError] = useState<string | null>(null);
+
+  const [summaryItems, setSummaryItems] = useState<DailyAttendanceSummaryItem[]>([]);
+  const [filterFrom, setFilterFrom] = useState<string>(() => getJakartaMonthStartString());
+  const [filterTo, setFilterTo] = useState<string>(() => getJakartaDateString());
+  const [loadingSummary, setLoadingSummary] = useState<boolean>(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  const handleLogout = useCallback(() => {
+    clearStoredToken();
+    setToken(null);
+    setEmployee(null);
+    setTodayStatus(null);
+    setSummaryItems([]);
+    setAuthError(null);
+  }, []);
+
+  const loadTodayStatus = useCallback(
+    async (activeToken: string) => {
+      setLoadingToday(true);
+      setTodayError(null);
+      try {
+        const status = await fetchTodayAttendance(activeToken);
+        setTodayStatus(status);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          handleLogout();
+          return;
+        }
+        setTodayError(
+          err instanceof Error
+            ? err.message
+            : 'Tidak dapat memuat status kehadiran hari ini.',
+        );
+      } finally {
+        setLoadingToday(false);
       }
-      const data = (await res.json()) as AllHealthResponse;
-      setHealth(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect to API Gateway');
-    } finally {
-      setLoading(false);
-    }
-  }, [gatewayUrl]);
+    },
+    [handleLogout],
+  );
+
+  const loadSummary = useCallback(
+    async (activeToken: string, from: string, to: string) => {
+      setLoadingSummary(true);
+      setSummaryError(null);
+      try {
+        const result = await fetchMyAttendanceSummary(activeToken, { from, to });
+        setSummaryItems(result.summary || result.data || []);
+        setFilterFrom(result.filter.from);
+        setFilterTo(result.filter.to);
+        if (result.todayStatus) {
+          setTodayStatus(result.todayStatus);
+        }
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          handleLogout();
+          return;
+        }
+        setSummaryError(
+          err instanceof Error
+            ? err.message
+            : 'Tidak dapat memuat rekap riwayat kehadiran.',
+        );
+      } finally {
+        setLoadingSummary(false);
+      }
+    },
+    [handleLogout],
+  );
+
+  const bootstrapSession = useCallback(
+    async (activeToken: string) => {
+      setAuthLoading(true);
+      setAuthError(null);
+      try {
+        const profile = await fetchMyProfile(activeToken);
+        setEmployee(profile);
+        await Promise.all([
+          loadTodayStatus(activeToken),
+          loadSummary(activeToken, getJakartaMonthStartString(), getJakartaDateString()),
+        ]);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          clearStoredToken();
+          setToken(null);
+          setEmployee(null);
+          setAuthError('Sesi login Anda telah berakhir. Silakan masuk kembali.');
+        } else {
+          setAuthError(
+            err instanceof Error
+              ? err.message
+              : 'Gagal menghubungi server API Gateway.',
+          );
+        }
+      } finally {
+        setAuthLoading(false);
+      }
+    },
+    [loadSummary, loadTodayStatus],
+  );
 
   useEffect(() => {
-    void fetchHealth();
-  }, [fetchHealth]);
+    if (token && !employee) {
+      void bootstrapSession(token);
+    }
+  }, [token, employee, bootstrapSession]);
 
-  return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-4xl space-y-6">
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
-              Employee Portal (:5173)
-            </span>
-            <h1 className="mt-2 text-2xl font-bold text-slate-900">
-              Dexa Group — WFH Attendance System
-            </h1>
-            <p className="text-sm text-slate-600">
-              Stage 1 Monorepo Boilerplate — Microservices Health Verification
-            </p>
-          </div>
-          <Button onClick={() => void fetchHealth()} disabled={loading}>
-            {loading ? 'Checking...' : 'Refresh Health'}
-          </Button>
-        </header>
+  const handleLogin = async (email: string, password: string) => {
+    setLoginLoading(true);
+    setAuthError(null);
+    try {
+      const response = await loginEmployee(email, password);
+      setStoredToken(response.accessToken);
+      setToken(response.accessToken);
+      const profile = await fetchMyProfile(response.accessToken);
+      setEmployee(profile);
+      setActiveTab('attendance');
+      const initialFrom = getJakartaMonthStartString();
+      const initialTo = getJakartaDateString();
+      await Promise.all([
+        loadTodayStatus(response.accessToken),
+        loadSummary(response.accessToken, initialFrom, initialTo),
+      ]);
+    } catch (err) {
+      setAuthError(
+        err instanceof Error
+          ? err.message
+          : 'Login gagal. Periksa kembali email dan kata sandi Anda.',
+      );
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
-        <Card title="Gateway Connection" subtitle="Configure API Gateway endpoint for health check">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <Input
-                id="gateway-url"
-                label="API Gateway URL"
-                value={gatewayUrl}
-                onChange={(e) => setGatewayUrl(e.target.value)}
-                placeholder="http://localhost:3000"
-              />
-            </div>
-            <Button variant="secondary" onClick={() => void fetchHealth()} disabled={loading}>
-              Check /health/all
+  const handleUpdateProfile = async (
+    payload: UpdateMyProfilePayload,
+  ): Promise<UpdateMyProfileResponse> => {
+    if (!token) {
+      throw new Error('Sesi tidak ditemukan. Silakan masuk kembali.');
+    }
+    const updated = await updateMyProfile(token, payload);
+    setEmployee({
+      id: updated.id,
+      name: updated.name,
+      email: updated.email,
+      position: updated.position,
+      phone: updated.phone,
+      photoUrl: updated.photoUrl,
+      role: updated.role,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
+    });
+    return updated;
+  };
+
+  const handleRefreshProfile = async () => {
+    if (!token) return;
+    const fresh = await fetchMyProfile(token);
+    setEmployee(fresh);
+  };
+
+  const handleCheckIn = async (): Promise<AttendanceActionResponse> => {
+    if (!token) {
+      throw new Error('Sesi tidak ditemukan. Silakan masuk kembali.');
+    }
+    const result = await checkInAttendance(token);
+    setTodayStatus(result.todayStatus);
+    await loadSummary(token, filterFrom, filterTo);
+    return result;
+  };
+
+  const handleCheckOut = async (): Promise<AttendanceActionResponse> => {
+    if (!token) {
+      throw new Error('Sesi tidak ditemukan. Silakan masuk kembali.');
+    }
+    const result = await checkOutAttendance(token);
+    setTodayStatus(result.todayStatus);
+    await loadSummary(token, filterFrom, filterTo);
+    return result;
+  };
+
+  const handleSearchSummary = async (from: string, to: string) => {
+    if (!token) return;
+    await loadSummary(token, from, to);
+  };
+
+  if (authLoading && token && !employee) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="rounded-xl border border-slate-200 bg-white px-8 py-10 shadow-xs">
+          <Spinner size="lg" label="Memverifikasi sesi karyawan..." />
+        </div>
+      </main>
+    );
+  }
+
+  if (token && !employee && authError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="w-full max-w-md space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
+          <h1 className="text-lg font-bold text-slate-900">
+            Kendala Koneksi Portal Karyawan
+          </h1>
+          <Alert variant="error" title="Tidak Dapat Memuat Profil">
+            {authError}
+          </Alert>
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => void bootstrapSession(token)}
+            >
+              Coba Lagi
+            </Button>
+            <Button type="button" variant="outline" onClick={handleLogout}>
+              Kembali ke Login
             </Button>
           </div>
-          {error ? (
-            <p className="mt-3 rounded-lg bg-red-50 p-3 text-xs text-red-700">
-              Connection Error: {error}
-            </p>
-          ) : null}
-        </Card>
+        </div>
+      </main>
+    );
+  }
 
-        {health ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {[health.gateway, ...Object.values(health.services)].map((svc) => (
-              <Card
-                key={svc.service}
-                title={svc.service}
-                subtitle={svc.timestamp ? `Checked: ${new Date(svc.timestamp).toLocaleTimeString()}` : 'Microservice'}
-                badge={
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${
-                      svc.status === 'ok'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {svc.status}
-                  </span>
-                }
-              >
-                {svc.dependencies ? (
-                  <ul className="space-y-1 text-xs text-slate-600">
-                    {Object.entries(svc.dependencies).map(([dep, info]) => (
-                      <li key={dep} className="flex items-center justify-between">
-                        <span className="font-medium capitalize">{dep}</span>
-                        <span
-                          className={
-                            info.status === 'up' ? 'text-emerald-600 font-semibold' : 'text-red-600'
-                          }
-                        >
-                          {info.status.toUpperCase()}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-slate-500">{svc.error ?? 'Service active'}</p>
-                )}
-              </Card>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </div>
+  if (!token || !employee) {
+    return (
+      <LoginView
+        onLogin={handleLogin}
+        loading={loginLoading}
+        error={authError}
+        onClearError={() => setAuthError(null)}
+      />
+    );
+  }
+
+  return (
+    <PortalLayout
+      employee={employee}
+      activeTab={activeTab}
+      onSelectTab={setActiveTab}
+      onLogout={handleLogout}
+    >
+      {activeTab === 'profile' ? (
+        <ProfileView
+          employee={employee}
+          onUpdateProfile={handleUpdateProfile}
+          onRefreshProfile={handleRefreshProfile}
+        />
+      ) : null}
+
+      {activeTab === 'attendance' ? (
+        <AttendanceView
+          todayStatus={todayStatus}
+          loadingStatus={loadingToday}
+          statusError={todayError}
+          onRefreshToday={() => loadTodayStatus(token)}
+          onCheckIn={handleCheckIn}
+          onCheckOut={handleCheckOut}
+          onNavigateSummary={() => setActiveTab('summary')}
+        />
+      ) : null}
+
+      {activeTab === 'summary' ? (
+        <SummaryView
+          items={summaryItems}
+          filterFrom={filterFrom}
+          filterTo={filterTo}
+          loading={loadingSummary}
+          error={summaryError}
+          onSearchFilter={handleSearchSummary}
+        />
+      ) : null}
+    </PortalLayout>
   );
 };
