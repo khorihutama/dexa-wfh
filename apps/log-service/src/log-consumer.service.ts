@@ -1,6 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import * as amqp from 'amqplib';
-import mongoose, { Connection, Model, Schema } from 'mongoose';
+import mongoose, { Connection, FilterQuery, Model, Schema } from 'mongoose';
 import {
   HealthDependencyStatus,
   LogEventPayloadDto,
@@ -16,16 +16,48 @@ export interface ActivityLogDocument {
   receivedAt: Date;
 }
 
+export interface GetLogsQueryDto {
+  limit?: string | number;
+  event?: string;
+  employeeId?: string;
+  search?: string;
+}
+
 const ActivityLogSchema = new Schema<ActivityLogDocument>(
   {
-    event: { type: String, required: true },
+    event: { type: String, required: true, index: true },
     source: { type: String, required: true },
     timestamp: { type: String, required: true },
     data: { type: Schema.Types.Mixed, default: {} },
-    receivedAt: { type: Date, default: () => new Date() },
+    receivedAt: { type: Date, default: () => new Date(), index: true },
   },
   { collection: 'activity_logs' },
 );
+
+const SENSITIVE_KEYS = new Set([
+  'password',
+  'newpassword',
+  'currentpassword',
+  'passwordhash',
+]);
+
+export function sanitizeLogData(input: unknown): unknown {
+  if (Array.isArray(input)) {
+    return input.map((item) => sanitizeLogData(item));
+  }
+  if (input && typeof input === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(input as Record<string, unknown>)) {
+      if (SENSITIVE_KEYS.has(key.toLowerCase()) && typeof val === 'string') {
+        out[key] = '[REDACTED]';
+      } else {
+        out[key] = sanitizeLogData(val);
+      }
+    }
+    return out;
+  }
+  return input;
+}
 
 @Injectable()
 export class LogConsumerService implements OnModuleInit, OnModuleDestroy {
@@ -90,12 +122,16 @@ export class LogConsumerService implements OnModuleInit, OnModuleDestroy {
           try {
             const raw = msg.content.toString('utf-8');
             const parsed = JSON.parse(raw) as LogEventPayloadDto;
+            const sanitizedData = sanitizeLogData(parsed.data ?? {}) as Record<
+              string,
+              unknown
+            >;
             const model = await this.initMongo();
             await model.create({
               event: parsed.event ?? 'unknown',
               source: parsed.source ?? 'unknown',
               timestamp: parsed.timestamp ?? new Date().toISOString(),
-              data: parsed.data ?? {},
+              data: sanitizedData,
               receivedAt: new Date(),
             });
             channel.ack(msg);
@@ -143,9 +179,39 @@ export class LogConsumerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async getRecentLogs(limit = 50) {
+  async getRecentLogs(query: GetLogsQueryDto = {}) {
     const model = await this.initMongo();
-    const docs = await model.find().sort({ receivedAt: -1 }).limit(limit).lean().exec();
+    const limit = Math.min(
+      200,
+      Math.max(1, Number.parseInt(String(query.limit ?? '50'), 10) || 50),
+    );
+
+    const filter: FilterQuery<ActivityLogDocument> = {};
+    if (typeof query.event === 'string' && query.event.trim()) {
+      filter.event = query.event.trim();
+    }
+    if (typeof query.employeeId === 'string' && query.employeeId.trim()) {
+      filter['data.employeeId'] = query.employeeId.trim();
+    }
+    if (typeof query.search === 'string' && query.search.trim()) {
+      const escaped = query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'i');
+      filter.$or = [
+        { event: regex },
+        { source: regex },
+        { 'data.name': regex },
+        { 'data.email': regex },
+        { 'data.summary': regex },
+      ];
+    }
+
+    const docs = await model
+      .find(filter)
+      .sort({ receivedAt: -1 })
+      .limit(limit)
+      .lean()
+      .exec();
+
     return {
       count: docs.length,
       data: docs,

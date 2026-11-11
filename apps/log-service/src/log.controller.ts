@@ -1,6 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { createHealthResponse, HealthStatusDto, SERVICES } from '@dexa-wfh/common';
-import { LogConsumerService } from './log-consumer.service';
+import { GetLogsQueryDto, LogConsumerService } from './log-consumer.service';
 
 @Controller()
 export class LogController {
@@ -16,7 +16,7 @@ export class LogController {
   }
 
   @Get('logs')
-  async getLogs() {
-    return this.logConsumer.getRecentLogs();
+  async getLogs(@Query() query: GetLogsQueryDto) {
+    return this.logConsumer.getRecentLogs(query);
   }
 }
