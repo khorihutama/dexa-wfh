@@ -1,0 +1,26 @@
+{
+  "name": "@dexa-wfh/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "pnpm run build && node --test test/ui.spec.mjs"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@dexa-wfh/eslint-config": "workspace:*",
+    "@dexa-wfh/tsconfig": "workspace:*",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.8",
+    "eslint": "^9.19.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.3"
+  }
+}
