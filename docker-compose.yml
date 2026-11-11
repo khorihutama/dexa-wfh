@@ -1,0 +1,173 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dexa-wfh-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-dexa_wfh}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dexa_wfh"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongodb:
+    image: mongo:7
+    container_name: dexa-wfh-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: dexa-wfh-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: apps/auth-service
+    container_name: dexa-wfh-auth-service
+    environment:
+      NODE_ENV: production
+      AUTH_SERVICE_PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dexa_wfh?schema=public
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  employee-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: apps/employee-service
+    container_name: dexa-wfh-employee-service
+    environment:
+      NODE_ENV: production
+      EMPLOYEE_SERVICE_PORT: 3002
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dexa_wfh?schema=public
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  attendance-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: apps/attendance-service
+    container_name: dexa-wfh-attendance-service
+    environment:
+      NODE_ENV: production
+      ATTENDANCE_SERVICE_PORT: 3003
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dexa_wfh?schema=public
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  log-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: apps/log-service
+    container_name: dexa-wfh-log-service
+    environment:
+      NODE_ENV: production
+      LOG_SERVICE_PORT: 3004
+      MONGODB_URI: mongodb://mongodb:27017/dexa_wfh_logs
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    ports:
+      - "3004:3004"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: apps/api-gateway
+    container_name: dexa-wfh-api-gateway
+    environment:
+      NODE_ENV: production
+      API_GATEWAY_PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3001
+      EMPLOYEE_SERVICE_URL: http://employee-service:3002
+      ATTENDANCE_SERVICE_URL: http://attendance-service:3003
+      LOG_SERVICE_URL: http://log-service:3004
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - employee-service
+      - attendance-service
+      - log-service
+
+  web-employee:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: apps/web-employee
+    container_name: dexa-wfh-web-employee
+    command: ["pnpm", "preview"]
+    environment:
+      VITE_API_GATEWAY_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api-gateway
+
+  web-admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: apps/web-admin
+    container_name: dexa-wfh-web-admin
+    command: ["pnpm", "preview"]
+    environment:
+      VITE_API_GATEWAY_URL: http://localhost:3000
+    ports:
+      - "5174:5174"
+    depends_on:
+      - api-gateway
+
+volumes:
+  postgres_data:
+  mongo_data:
