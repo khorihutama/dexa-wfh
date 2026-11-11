@@ -14,6 +14,10 @@ coverage
 .vscode
 .idea
 
+# Uploaded files (keep directory placeholder)
+uploads/avatars/*
+!uploads/avatars/.gitkeep
+
 # Environment & logs
 .env
 .env.*

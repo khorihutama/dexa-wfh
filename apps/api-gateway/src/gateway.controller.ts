@@ -105,8 +105,17 @@ export class GatewayController {
     }
   }
 
+  private buildInternalHeaders(extra?: Record<string, string>): Record<string, string> {
+    return {
+      'x-internal-key': this.config.INTERNAL_API_KEY,
+      ...(extra ?? {}),
+    };
+  }
+
   private buildUserHeaders(req: AuthenticatedRequest): Record<string, string> {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+      'x-internal-key': this.config.INTERNAL_API_KEY,
+    };
     if (req.user?.sub) {
       headers['x-user-id'] = req.user.sub;
     }
@@ -213,6 +222,7 @@ export class GatewayController {
   async login(@Body() body: Record<string, unknown>) {
     return this.proxyRequest(
       this.httpService.post(`${this.config.AUTH_SERVICE_URL}/auth/login`, body, {
+        headers: this.buildInternalHeaders(),
         timeout: 5000,
       }),
     );
@@ -226,7 +236,9 @@ export class GatewayController {
   ) {
     return this.proxyRequest(
       this.httpService.get(`${this.config.AUTH_SERVICE_URL}/auth/validate`, {
-        headers: authHeader ? { authorization: authHeader } : {},
+        headers: this.buildInternalHeaders(
+          authHeader ? { authorization: authHeader } : undefined,
+        ),
         params: token ? { token } : {},
         timeout: 5000,
       }),
@@ -242,7 +254,9 @@ export class GatewayController {
   ) {
     return this.proxyRequest(
       this.httpService.post(`${this.config.AUTH_SERVICE_URL}/auth/validate`, body ?? {}, {
-        headers: authHeader ? { authorization: authHeader } : {},
+        headers: this.buildInternalHeaders(
+          authHeader ? { authorization: authHeader } : undefined,
+        ),
         timeout: 5000,
       }),
     );
@@ -683,6 +697,7 @@ export class GatewayController {
   async getLogs(@Query() query: Record<string, unknown>) {
     return this.proxyRequest(
       this.httpService.get(`${this.config.LOG_SERVICE_URL}/logs`, {
+        headers: this.buildInternalHeaders(),
         params: query,
         timeout: 5000,
       }),

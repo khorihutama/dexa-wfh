@@ -134,7 +134,9 @@ export class AuthService {
     userIdOrHeader: { userId?: string; authHeader?: string | string[] },
     dto: ChangePasswordDto,
   ): Promise<{ updated: true; message: string }> {
-    const resolvedUserId = dto?.userId || this.resolveUserId(userIdOrHeader);
+    const resolvedUserId = this.resolveUserId(userIdOrHeader);
+    const currentPassword =
+      typeof dto?.currentPassword === 'string' ? dto.currentPassword : '';
     const nextPassword =
       typeof dto?.newPassword === 'string' && dto.newPassword.length > 0
         ? dto.newPassword
@@ -142,6 +144,9 @@ export class AuthService {
           ? dto.password
           : '';
 
+    if (!currentPassword) {
+      throw new BadRequestException('Current password is required');
+    }
     if (!nextPassword || nextPassword.length < 6) {
       throw new BadRequestException('New password must be at least 6 characters');
     }
@@ -153,11 +158,9 @@ export class AuthService {
       throw new NotFoundException('Employee account not found');
     }
 
-    if (typeof dto?.currentPassword === 'string' && dto.currentPassword.length > 0) {
-      const validCurrent = await verifyPassword(dto.currentPassword, employee.passwordHash);
-      if (!validCurrent) {
-        throw new BadRequestException('Current password is incorrect');
-      }
+    const validCurrent = await verifyPassword(currentPassword, employee.passwordHash);
+    if (!validCurrent) {
+      throw new BadRequestException('Current password is incorrect');
     }
 
     const passwordHash = await hashPassword(nextPassword);

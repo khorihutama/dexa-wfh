@@ -9,6 +9,10 @@ import {
   HttpStatus,
   BadRequestException,
   UnauthorizedException,
+  ForbiddenException,
+  CanActivate,
+  ExecutionContext,
+  Injectable,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
@@ -240,6 +244,43 @@ export interface UploadedFileLike {
   fieldname?: string;
 }
 
+export function hasValidImageMagicBytes(buffer: Buffer, ext: string): boolean {
+  if (!buffer || buffer.length < 4) {
+    return false;
+  }
+  const normalizedExt = ext.toLowerCase();
+  if (normalizedExt === '.png') {
+    return (
+      buffer.length >= 8 &&
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47 &&
+      buffer[4] === 0x0d &&
+      buffer[5] === 0x0a &&
+      buffer[6] === 0x1a &&
+      buffer[7] === 0x0a
+    );
+  }
+  if (normalizedExt === '.jpg' || normalizedExt === '.jpeg') {
+    return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+  if (normalizedExt === '.webp') {
+    return (
+      buffer.length >= 12 &&
+      buffer[0] === 0x52 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x46 &&
+      buffer[8] === 0x57 &&
+      buffer[9] === 0x45 &&
+      buffer[10] === 0x42 &&
+      buffer[11] === 0x50
+    );
+  }
+  return false;
+}
+
 export async function saveUploadedAvatar(
   file: UploadedFileLike,
   uploadsDir: string,
@@ -254,13 +295,27 @@ export async function saveUploadedAvatar(
 
   const mime = (file.mimetype || '').toLowerCase();
   const origExt = path.extname(file.originalname || '').toLowerCase();
-  if (!ALLOWED_IMAGE_MIMES.has(mime) && !EXT_TO_CONTENT_TYPE[origExt]) {
+  if (!ALLOWED_IMAGE_MIMES.has(mime) || !EXT_TO_CONTENT_TYPE[origExt]) {
     throw new BadRequestException(
-      'Unsupported image format. Allowed formats: jpg, jpeg, png, webp',
+      'Unsupported image format or extension. Both MIME type and extension must be jpg, jpeg, png, or webp',
     );
   }
 
-  const ext = EXT_TO_CONTENT_TYPE[origExt] ? origExt : (MIME_TO_EXT[mime] ?? '.png');
+  const expectedMimeForExt = EXT_TO_CONTENT_TYPE[origExt];
+  const normalizedMime = mime === 'image/jpg' ? 'image/jpeg' : mime;
+  if (expectedMimeForExt !== normalizedMime) {
+    throw new BadRequestException(
+      'Image MIME type does not match file extension',
+    );
+  }
+
+  if (!hasValidImageMagicBytes(file.buffer, origExt)) {
+    throw new BadRequestException(
+      'Invalid image binary signature (magic bytes mismatch)',
+    );
+  }
+
+  const ext = origExt;
   const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24) || 'avatar';
   const filename = `${safePrefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
 
@@ -288,6 +343,38 @@ export function resolveAvatarFilePath(
   const avatarsDir = path.resolve(uploadsDir, 'avatars');
   const filePath = path.join(avatarsDir, safeName);
   return { filePath, contentType };
+}
+
+@Injectable()
+export class InternalApiKeyGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const req = context.switchToHttp().getRequest<{
+      url?: string;
+      path?: string;
+      headers?: Record<string, string | string[] | undefined>;
+    }>();
+
+    const routePath = (req?.path ?? req?.url ?? '').split('?')[0];
+    if (
+      routePath === '/health' ||
+      routePath.startsWith('/uploads/avatars/')
+    ) {
+      return true;
+    }
+
+    const expectedKey =
+      process.env.INTERNAL_API_KEY ?? 'dexa-wfh-internal-service-key';
+    const rawHeader = req?.headers?.['x-internal-key'];
+    const providedKey = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+
+    if (!providedKey || providedKey !== expectedKey) {
+      throw new ForbiddenException(
+        'Forbidden: direct access requires a valid x-internal-key header',
+      );
+    }
+
+    return true;
+  }
 }
 
 @Catch()

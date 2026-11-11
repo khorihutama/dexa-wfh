@@ -64,6 +64,17 @@ test('EmployeeService profile updates emit events and Admin CRUD prevents self-d
   };
 
   const service = new EmployeeService(mockPrisma, mockEvents);
+
+  // Reject password change when currentPassword is missing
+  await assert.rejects(
+    () =>
+      service.updateMyProfile(
+        { userId: 'emp-1' },
+        { newPassword: 'UpdatedPass123!' },
+      ),
+    /Current password is required to change password/,
+  );
+
   const updated = await service.updateMyProfile(
     { userId: 'emp-1' },
     {

@@ -59,6 +59,16 @@ test('AuthService login, token validation, and password change logic work with m
   assert.equal(validated.valid, true);
   assert.equal(validated.payload.sub, 'emp-budi');
 
+  // Reject password change when currentPassword is missing
+  await assert.rejects(
+    () =>
+      authService.updatePassword(
+        { userId: 'emp-budi' },
+        { newPassword: 'NewPassword456!' },
+      ),
+    /Current password is required/,
+  );
+
   const pwdUpdate = await authService.updatePassword(
     { userId: 'emp-budi' },
     { currentPassword: 'REDACTED_EMPLOYEE_PASSWORD', newPassword: 'NewPassword456!' },

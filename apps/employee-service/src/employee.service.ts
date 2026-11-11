@@ -151,14 +151,15 @@ export class EmployeeService {
       if (rawNewPassword.length < 6) {
         throw new BadRequestException('New password must be at least 6 characters');
       }
-      if (typeof dto?.currentPassword === 'string' && dto.currentPassword.length > 0) {
-        const isCurrentValid = await verifyPassword(
-          dto.currentPassword,
-          existing.passwordHash,
-        );
-        if (!isCurrentValid) {
-          throw new BadRequestException('Current password is incorrect');
-        }
+      if (typeof dto?.currentPassword !== 'string' || dto.currentPassword.length === 0) {
+        throw new BadRequestException('Current password is required to change password');
+      }
+      const isCurrentValid = await verifyPassword(
+        dto.currentPassword,
+        existing.passwordHash,
+      );
+      if (!isCurrentValid) {
+        throw new BadRequestException('Current password is incorrect');
       }
       updateData.passwordHash = await hashPassword(rawNewPassword);
       changedFields.push('password');
