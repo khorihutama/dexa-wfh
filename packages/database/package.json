@@ -4,9 +4,13 @@
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "prisma": {
+    "seed": "node prisma/seed.ts"
+  },
   "scripts": {
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
+    "db:seed": "node prisma/seed.ts",
     "build": "prisma generate && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",

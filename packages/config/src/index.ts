@@ -1,3 +1,5 @@
+import * as path from 'node:path';
+
 export interface AppEnvConfig {
   NODE_ENV: 'development' | 'production' | 'test';
   API_GATEWAY_PORT: number;
@@ -5,6 +7,7 @@ export interface AppEnvConfig {
   EMPLOYEE_SERVICE_PORT: number;
   ATTENDANCE_SERVICE_PORT: number;
   LOG_SERVICE_PORT: number;
+  API_GATEWAY_URL: string;
   AUTH_SERVICE_URL: string;
   EMPLOYEE_SERVICE_URL: string;
   ATTENDANCE_SERVICE_URL: string;
@@ -13,6 +16,10 @@ export interface AppEnvConfig {
   MONGODB_URI: string;
   RABBITMQ_URL: string;
   CORS_ORIGIN: string;
+  JWT_SECRET: string;
+  JWT_EXPIRES_IN: string;
+  INTERNAL_API_KEY: string;
+  UPLOADS_DIR: string;
 }
 
 function parsePort(value: string | undefined, fallback: number, name: string): number {
@@ -39,6 +46,8 @@ export function loadEnvConfig(env: NodeJS.ProcessEnv = process.env): AppEnvConfi
   );
   const LOG_SERVICE_PORT = parsePort(env.LOG_SERVICE_PORT, 3004, 'LOG_SERVICE_PORT');
 
+  const defaultUploadsDir = path.resolve(__dirname, '../../../uploads');
+
   return {
     NODE_ENV,
     API_GATEWAY_PORT,
@@ -46,6 +55,7 @@ export function loadEnvConfig(env: NodeJS.ProcessEnv = process.env): AppEnvConfi
     EMPLOYEE_SERVICE_PORT,
     ATTENDANCE_SERVICE_PORT,
     LOG_SERVICE_PORT,
+    API_GATEWAY_URL: env.API_GATEWAY_URL ?? `http://localhost:${API_GATEWAY_PORT}`,
     AUTH_SERVICE_URL: env.AUTH_SERVICE_URL ?? `http://localhost:${AUTH_SERVICE_PORT}`,
     EMPLOYEE_SERVICE_URL: env.EMPLOYEE_SERVICE_URL ?? `http://localhost:${EMPLOYEE_SERVICE_PORT}`,
     ATTENDANCE_SERVICE_URL:
@@ -55,6 +65,22 @@ export function loadEnvConfig(env: NodeJS.ProcessEnv = process.env): AppEnvConfi
       env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/dexa_wfh?schema=public',
     MONGODB_URI: env.MONGODB_URI ?? 'mongodb://localhost:27017/dexa_wfh_logs',
     RABBITMQ_URL: env.RABBITMQ_URL ?? 'amqp://guest:guest@localhost:5672',
-    CORS_ORIGIN: env.CORS_ORIGIN ?? '*',
+    CORS_ORIGIN: env.CORS_ORIGIN ?? 'http://localhost:5173,http://localhost:5174',
+    JWT_SECRET: env.JWT_SECRET ?? 'dexa-wfh-dev-jwt-secret-key-2026',
+    JWT_EXPIRES_IN: env.JWT_EXPIRES_IN ?? '8h',
+    INTERNAL_API_KEY: env.INTERNAL_API_KEY ?? 'dexa-wfh-internal-service-key',
+    UPLOADS_DIR: env.UPLOADS_DIR ? path.resolve(env.UPLOADS_DIR) : defaultUploadsDir,
   };
+}
+
+export function parseCorsOrigins(corsOrigin: string): string | string[] {
+  const trimmed = corsOrigin.trim();
+  if (trimmed === '*') {
+    return '*';
+  }
+  const list = trimmed
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return list.length === 1 ? list[0] : list;
 }

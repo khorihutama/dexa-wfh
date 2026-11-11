@@ -11,11 +11,15 @@
     "test": "pnpm run build && node --test test/common.spec.mjs"
   },
   "dependencies": {
-    "@nestjs/common": "^11.0.0"
+    "@nestjs/common": "^11.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "@dexa-wfh/eslint-config": "workspace:*",
     "@dexa-wfh/tsconfig": "workspace:*",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.10.0",
     "eslint": "^9.19.0",
     "typescript": "^5.7.3"

@@ -7,8 +7,48 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Placeholder model for Stage 1 boilerplate verification.
-/// Business models (Employee, Attendance, User) will be added in Stage 2.
+enum Role {
+  EMPLOYEE
+  ADMIN
+}
+
+enum AttendanceStatus {
+  MASUK
+  PULANG
+}
+
+model Employee {
+  id           String       @id @default(uuid())
+  name         String
+  email        String       @unique
+  passwordHash String       @map("password_hash")
+  photoUrl     String?      @map("photo_url")
+  position     String
+  phone        String
+  role         Role         @default(EMPLOYEE)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  attendances  Attendance[]
+
+  @@index([role])
+  @@index([name])
+  @@map("employees")
+}
+
+model Attendance {
+  id         String           @id @default(uuid())
+  employeeId String           @map("employee_id")
+  date       String
+  timestamp  DateTime         @default(now())
+  status     AttendanceStatus
+  employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date, status])
+  @@index([date])
+  @@index([employeeId, date])
+  @@map("attendances")
+}
+
 model SystemHeartbeat {
   id        String   @id @default(uuid())
   service   String
