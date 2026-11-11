@@ -17,12 +17,14 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "amqplib": "^0.10.5",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@dexa-wfh/eslint-config": "workspace:*",
     "@dexa-wfh/tsconfig": "workspace:*",
+    "@types/amqplib": "^0.10.6",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.0",
     "eslint": "^9.19.0",
