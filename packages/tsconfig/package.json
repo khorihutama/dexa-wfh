@@ -1,0 +1,10 @@
+{
+  "name": "@dexa-wfh/tsconfig",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "base.json",
+    "nestjs.json",
+    "react.json"
+  ]
+}
