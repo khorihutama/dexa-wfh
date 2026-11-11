@@ -7,7 +7,7 @@ RUN corepack enable && corepack prepare pnpm@10.28.0 --activate
 WORKDIR /app
 
 FROM base AS deps
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* turbo.json ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
 COPY packages/tsconfig/package.json ./packages/tsconfig/
 COPY packages/eslint-config/package.json ./packages/eslint-config/
 COPY packages/common/package.json ./packages/common/
@@ -21,7 +21,7 @@ COPY apps/attendance-service/package.json ./apps/attendance-service/
 COPY apps/log-service/package.json ./apps/log-service/
 COPY apps/web-employee/package.json ./apps/web-employee/
 COPY apps/web-admin/package.json ./apps/web-admin/
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
 COPY . .
@@ -31,6 +31,8 @@ FROM base AS runner
 ARG APP_DIR=apps/api-gateway
 ENV NODE_ENV=production
 ENV APP_DIR=${APP_DIR}
-COPY --from=builder /app /app
+COPY --from=builder --chown=node:node /app /app
+RUN mkdir -p /app/uploads/avatars && chown -R node:node /app/uploads
+USER node
 WORKDIR /app/${APP_DIR}
 CMD ["pnpm", "start"]

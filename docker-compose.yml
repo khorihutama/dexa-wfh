@@ -55,6 +55,8 @@ services:
       NODE_ENV: production
       AUTH_SERVICE_PORT: 3001
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dexa_wfh?schema=public
+      JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
     ports:
       - "3001:3001"
     depends_on:
@@ -72,10 +74,19 @@ services:
       NODE_ENV: production
       EMPLOYEE_SERVICE_PORT: 3002
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dexa_wfh?schema=public
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      API_GATEWAY_URL: http://api-gateway:3000
+      JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dexa-wfh-internal-service-key}
+      UPLOADS_DIR: /app/uploads
     ports:
       - "3002:3002"
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   attendance-service:
@@ -89,6 +100,7 @@ services:
       NODE_ENV: production
       ATTENDANCE_SERVICE_PORT: 3003
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dexa_wfh?schema=public
+      JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
     ports:
       - "3003:3003"
     depends_on:
@@ -130,8 +142,14 @@ services:
       ATTENDANCE_SERVICE_URL: http://attendance-service:3003
       LOG_SERVICE_URL: http://log-service:3004
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:5174}
+      JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dexa-wfh-internal-service-key}
+      UPLOADS_DIR: /app/uploads
     ports:
       - "3000:3000"
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       - auth-service
       - employee-service
@@ -171,3 +189,4 @@ services:
 volumes:
   postgres_data:
   mongo_data:
+  uploads_data:

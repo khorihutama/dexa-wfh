@@ -1,0 +1,23 @@
+# Dependencies & build artifacts
+node_modules
+**/node_modules
+dist
+**/dist
+build
+**/build
+.turbo
+coverage
+
+# Git & IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Environment & logs
+.env
+.env.*
+!.env.example
+logs
+*.log
+*.tsbuildinfo
