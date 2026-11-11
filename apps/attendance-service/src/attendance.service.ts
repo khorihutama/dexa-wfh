@@ -143,6 +143,7 @@ export class AttendanceService {
 
     return {
       message: 'Check-in (MASUK) recorded successfully',
+      employee: { id: employee.id, name: employee.name, email: employee.email },
       record: this.formatRecord(created),
       todayStatus: await this.getTodayStatusForEmployee(employeeId),
     };
@@ -203,6 +204,7 @@ export class AttendanceService {
 
     return {
       message: 'Check-out (PULANG) recorded successfully',
+      employee: { id: employee.id, name: employee.name, email: employee.email },
       record: this.formatRecord(created),
       todayStatus: await this.getTodayStatusForEmployee(employeeId),
     };

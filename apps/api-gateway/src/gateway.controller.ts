@@ -105,6 +105,24 @@ export class GatewayController {
     }
   }
 
+  private broadcastAttendanceResult(result: {
+    employee?: { id: string; name: string; email: string };
+    record: { status: string; formattedTime: string };
+  }) {
+    const statusLabel = result.record.status === 'MASUK' ? 'masuk' : 'pulang';
+    this.notificationsGateway.broadcastNotification(
+      `Absen ${result.record.status}`,
+      `${result.employee?.name ?? 'Karyawan'} (${result.employee?.email ?? '-'}) tercatat absen ${statusLabel} pukul ${result.record.formattedTime} WIB`,
+      {
+        event: 'attendance.recorded',
+        employeeId: result.employee?.id,
+        employeeName: result.employee?.name,
+        attendance: result.record,
+      },
+    );
+    return result;
+  }
+
   private buildInternalHeaders(extra?: Record<string, string>): Record<string, string> {
     return {
       'x-internal-key': this.config.INTERNAL_API_KEY,
@@ -544,14 +562,19 @@ export class GatewayController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Record WFH check-in (MASUK) for today (Asia/Jakarta)' })
   async checkIn(@Req() req: AuthenticatedRequest) {
-    return this.proxyRequest(
-      this.httpService.post(
-        `${this.config.ATTENDANCE_SERVICE_URL}/attendances/check-in`,
-        {},
-        {
-          headers: this.buildUserHeaders(req),
-          timeout: 5000,
-        },
+    return this.broadcastAttendanceResult(
+      await this.proxyRequest<{
+        employee?: { id: string; name: string; email: string };
+        record: { status: string; formattedTime: string };
+      }>(
+        this.httpService.post(
+          `${this.config.ATTENDANCE_SERVICE_URL}/attendances/check-in`,
+          {},
+          {
+            headers: this.buildUserHeaders(req),
+            timeout: 5000,
+          },
+        ),
       ),
     );
   }
@@ -562,14 +585,19 @@ export class GatewayController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Record WFH check-out (PULANG) for today (Asia/Jakarta)' })
   async checkOut(@Req() req: AuthenticatedRequest) {
-    return this.proxyRequest(
-      this.httpService.post(
-        `${this.config.ATTENDANCE_SERVICE_URL}/attendances/check-out`,
-        {},
-        {
-          headers: this.buildUserHeaders(req),
-          timeout: 5000,
-        },
+    return this.broadcastAttendanceResult(
+      await this.proxyRequest<{
+        employee?: { id: string; name: string; email: string };
+        record: { status: string; formattedTime: string };
+      }>(
+        this.httpService.post(
+          `${this.config.ATTENDANCE_SERVICE_URL}/attendances/check-out`,
+          {},
+          {
+            headers: this.buildUserHeaders(req),
+            timeout: 5000,
+          },
+        ),
       ),
     );
   }
