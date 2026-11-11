@@ -1,0 +1,32 @@
+{
+  "name": "@dexa-wfh/web-employee",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173 --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 5173 --host",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "node --test test/app.spec.mjs"
+  },
+  "dependencies": {
+    "@dexa-wfh/ui": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@dexa-wfh/eslint-config": "workspace:*",
+    "@dexa-wfh/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "^4.0.6",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.19.0",
+    "tailwindcss": "^4.0.6",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0"
+  }
+}
