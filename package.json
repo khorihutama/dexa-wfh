@@ -1,0 +1,23 @@
+{
+  "name": "dexa-wfh",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dexa Group WFH Attendance System — Microservices Monorepo Boilerplate",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @dexa-wfh/database db:generate",
+    "db:migrate": "pnpm --filter @dexa-wfh/database db:migrate"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
