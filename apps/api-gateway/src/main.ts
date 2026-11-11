@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AllExceptionsFilter } from '@dexa-wfh/common';
-import { loadEnvConfig } from '@dexa-wfh/config';
+import { loadEnvConfig, parseCorsOrigins } from '@dexa-wfh/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -10,14 +10,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: config.CORS_ORIGIN,
+    origin: parseCorsOrigins(config.CORS_ORIGIN),
+    credentials: true,
   });
   app.useGlobalFilters(new AllExceptionsFilter());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Dexa WFH API Gateway')
     .setDescription('Public REST Gateway & Microservices Proxy for Dexa WFH Attendance System')
-    .setVersion('0.1.0')
+    .setVersion('0.2.0')
+    .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);
