@@ -1,0 +1,29 @@
+{
+  "name": "@dexa-wfh/database",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "build": "prisma generate && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "pnpm run build && node --test test/database.spec.mjs"
+  },
+  "dependencies": {
+    "@dexa-wfh/common": "workspace:*",
+    "@dexa-wfh/config": "workspace:*",
+    "@nestjs/common": "^11.0.0",
+    "@prisma/client": "^6.3.1"
+  },
+  "devDependencies": {
+    "@dexa-wfh/eslint-config": "workspace:*",
+    "@dexa-wfh/tsconfig": "workspace:*",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.19.0",
+    "prisma": "^6.3.1",
+    "typescript": "^5.7.3"
+  }
+}

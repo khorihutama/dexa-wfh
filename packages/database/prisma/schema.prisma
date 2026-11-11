@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Placeholder model for Stage 1 boilerplate verification.
+/// Business models (Employee, Attendance, User) will be added in Stage 2.
+model SystemHeartbeat {
+  id        String   @id @default(uuid())
+  service   String
+  checkedAt DateTime @default(now())
+
+  @@map("system_heartbeats")
+}
