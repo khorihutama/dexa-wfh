@@ -90,6 +90,7 @@ test('App.tsx gates ADMIN role, subscribes to admin.notification, and renders to
   assert.match(appSource, /admin\.notification/);
   assert.match(appSource, /@dexa-wfh\/ui/);
   assert.match(appSource, /role !== 'ADMIN'/);
+  assert.match(appSource, /auth: \{ token \}/, 'socket handshake must carry the admin JWT');
   assert.match(appSource, /NotificationToasts/);
   assert.match(appSource, /EmployeeManager/);
   assert.match(appSource, /AttendanceMonitor/);

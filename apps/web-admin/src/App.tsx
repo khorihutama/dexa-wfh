@@ -162,12 +162,16 @@ export const App: React.FC = () => {
   }, [token, admin, bootstrapSession]);
 
   useEffect(() => {
-    if (!admin) return;
-    const socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] });
+    if (!admin || !token) return;
+    const socket = io(API_BASE_URL, {
+      transports: ['websocket', 'polling'],
+      auth: { token },
+    });
     socketRef.current = socket;
 
     socket.on('connect', () => setSocketConnected(true));
     socket.on('disconnect', () => setSocketConnected(false));
+    socket.on('connect_error', () => setSocketConnected(false));
     socket.on('admin.notification', (payload: AdminNotification) => {
       // Gateway emits a channel handshake toast on connect; only business events matter here.
       if (payload.id?.startsWith('conn-')) return;
@@ -181,7 +185,7 @@ export const App: React.FC = () => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [admin]);
+  }, [admin, token]);
 
   const handleLogin = async (email: string, password: string) => {
     setLoginLoading(true);

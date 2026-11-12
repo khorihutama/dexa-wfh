@@ -3,10 +3,17 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   SubscribeMessage,
+  ConnectedSocket,
   MessageBody,
+  WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { EVENTS, ProfileUpdatedEventDataDto } from '@dexa-wfh/common';
+import {
+  EVENTS,
+  JwtPayloadDto,
+  ProfileUpdatedEventDataDto,
+  verifyJwtToken,
+} from '@dexa-wfh/common';
 import { loadEnvConfig, parseCorsOrigins } from '@dexa-wfh/config';
 
 const gatewayConfig = loadEnvConfig();
@@ -21,18 +28,68 @@ export class NotificationsGateway implements OnGatewayConnection {
   @WebSocketServer()
   server!: Server;
 
+  private readonly config = gatewayConfig;
+
   handleConnection(client: Socket) {
+    const token = NotificationsGateway.extractToken(client);
+    let user: JwtPayloadDto | null = null;
+
+    if (token) {
+      try {
+        const payload = verifyJwtToken(token, this.config.JWT_SECRET);
+        if (payload.role === 'ADMIN') {
+          user = payload;
+        }
+      } catch {
+        user = null;
+      }
+    }
+
+    if (!user) {
+      client.emit(EVENTS.ADMIN_NOTIFICATION, {
+        id: `auth-${Date.now()}`,
+        type: 'error',
+        title: 'Unauthorized',
+        message: 'Koneksi real-time memerlukan token Admin HRD yang sah.',
+        timestamp: new Date().toISOString(),
+      });
+      client.disconnect(true);
+      return;
+    }
+
+    client.data.user = user;
     client.emit(EVENTS.ADMIN_NOTIFICATION, {
       id: `conn-${Date.now()}`,
       type: 'info',
       title: 'Real-Time Channel Connected',
-      message: 'Connected to Dexa WFH API Gateway via Socket.IO.',
+      message: `Connected to Dexa WFH API Gateway via Socket.IO as ${user.email}.`,
       timestamp: new Date().toISOString(),
     });
   }
 
+  private static extractToken(client: Socket): string | null {
+    const authToken = client.handshake.auth?.token;
+    if (typeof authToken === 'string' && authToken.trim()) {
+      return authToken.trim();
+    }
+    const header = client.handshake.headers.authorization;
+    if (typeof header === 'string' && header.trim().toLowerCase().startsWith('bearer ')) {
+      return header.trim().slice(7).trim();
+    }
+    const queryToken = client.handshake.query?.token;
+    if (typeof queryToken === 'string' && queryToken.trim()) {
+      return queryToken.trim();
+    }
+    return null;
+  }
+
   @SubscribeMessage('ping')
-  handlePing(@MessageBody() payload: Record<string, unknown>) {
+  handlePing(@ConnectedSocket() client: Socket, @MessageBody() payload: Record<string, unknown>) {
+    const user = client.data?.user as JwtPayloadDto | undefined;
+    if (!user || user.role !== 'ADMIN') {
+      throw new WsException('Ping broadcast requires an authenticated Admin HRD session');
+    }
+
     const notification = {
       id: `ping-${Date.now()}`,
       type: 'success',
