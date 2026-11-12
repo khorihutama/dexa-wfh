@@ -202,7 +202,8 @@ services:
       ATTENDANCE_SERVICE_URL: http://attendance-service:3003
       LOG_SERVICE_URL: http://log-service:3004
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:5174}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:5174,http://192.168.10.172:5173,http://192.168.10.172:5174}
+      CORS_ALLOW_LAN: "true"
       JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dexa-wfh-internal-service-key}
       UPLOADS_DIR: /app/uploads

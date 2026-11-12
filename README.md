@@ -80,6 +80,18 @@ Setelah stack hidup:
 
 `VITE_API_GATEWAY_URL` dibaca saat **build** image frontend. Nilai default di dalam kode adalah `http://localhost:3000`, jadi build standar sudah cocok untuk pemakaian lokal. Untuk alamat gateway lain, set variabel itu sebelum `docker compose build`.
 
+### Akses dari perangkat lain di jaringan lokal (LAN)
+
+`CORS_ALLOW_LAN` mengizinkan origin perangkat lokal tanpa mendaftarkan IP satu per satu. Saat aktif, gateway menerima origin yang hostname-nya `localhost`, `127.0.0.1`, `0.0.0.0`, `::1`, atau IPv4 privat (`10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`), pada port dan skema apa pun (http/https). Origin publik seperti `https://evil.example` tetap ditolak. Origin yang lolos selalu **direfleksikan** (bukan wildcard `*`) karena request memakai kredensial.
+
+- Default: `true` saat `NODE_ENV=development`, `false` saat `production`/`test`.
+- Docker Compose menjalankan gateway dengan `NODE_ENV=production`, jadi `docker-compose.yml` menetapkan `CORS_ALLOW_LAN: "true"` secara eksplisit untuk stack lokal ini.
+- Saat `false`, perilaku lama berlaku: hanya origin yang persis ada di `CORS_ORIGIN` yang diterima.
+- Dari HP atau laptop lain, buka `http://<IP-LAN-host>:5173` atau `:5174`, misalnya `http://192.168.10.172:5173`. Jangan memakai `0.0.0.0` sebagai alamat navigasi di browser; Chrome modern memblokirnya. `0.0.0.0` hanya alamat bind di sisi server.
+- Frontend Docker sudah bind `0.0.0.0` lewat `vite preview`, dan `pnpm dev` memakai `host: true`. Pastikan firewall host mengizinkan port `3000`, `5173`, dan `5174`.
+
+Logika CORS yang sama dipakai HTTP gateway (`enableCors`) dan handshake Socket.IO, lewat satu helper `createCorsOriginValidator` di `packages/config`.
+
 ## Menjalankan mode pengembangan (pnpm)
 
 ```bash

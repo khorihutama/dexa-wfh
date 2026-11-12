@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AllExceptionsFilter } from '@dexa-wfh/common';
-import { loadEnvConfig, parseCorsOrigins } from '@dexa-wfh/config';
+import { createCorsOriginValidator, loadEnvConfig } from '@dexa-wfh/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -10,7 +10,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: parseCorsOrigins(config.CORS_ORIGIN),
+    origin: createCorsOriginValidator(config.CORS_ORIGIN, config.CORS_ALLOW_LAN),
     credentials: true,
   });
   app.useGlobalFilters(new AllExceptionsFilter());

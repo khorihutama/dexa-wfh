@@ -14,13 +14,13 @@ import {
   ProfileUpdatedEventDataDto,
   verifyJwtToken,
 } from '@dexa-wfh/common';
-import { loadEnvConfig, parseCorsOrigins } from '@dexa-wfh/config';
+import { createCorsOriginValidator, loadEnvConfig } from '@dexa-wfh/config';
 
 const gatewayConfig = loadEnvConfig();
 
 @WebSocketGateway({
   cors: {
-    origin: parseCorsOrigins(gatewayConfig.CORS_ORIGIN),
+    origin: createCorsOriginValidator(gatewayConfig.CORS_ORIGIN, gatewayConfig.CORS_ALLOW_LAN),
     credentials: true,
   },
 })
