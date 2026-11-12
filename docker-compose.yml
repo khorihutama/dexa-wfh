@@ -1,3 +1,17 @@
+name: dexa-wfh
+
+# Satu image berisi seluruh monorepo ternyata dipakai semua service; setiap service
+# hanya mengganti working_dir dan command. Ini memotong waktu build dari 8 image
+# identik menjadi satu.
+x-app-image: &app-image
+  image: dexa-wfh-app:local
+
+x-service-healthcheck: &service-healthcheck
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 25s
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -12,10 +26,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d dexa_wfh"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dexa_wfh}"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
 
   mongodb:
     image: mongo:7
@@ -26,10 +40,12 @@ services:
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      # mongosh butuh beberapa detik saat start, timeout kecil membuat status flapping.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 20s
+      retries: 12
+      start_period: 30s
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -41,39 +57,68 @@ services:
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
-      timeout: 5s
-      retries: 10
+      timeout: 10s
+      retries: 12
 
-  auth-service:
+  # Satu-satunya service yang membangun image aplikasi. Service lain memakai
+  # image yang sama (dexa-wfh-app:local) dan hanya menjalankan folder masing-masing.
+  db-init:
+    <<: *app-image
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        APP_DIR: apps/auth-service
-    container_name: dexa-wfh-auth-service
+        APP_DIR: packages/database
+    container_name: dexa-wfh-db-init
+    restart: "no"
+    working_dir: /app/packages/database
+    command: ["sh", "-c", "pnpm db:migrate && pnpm db:seed"]
     environment:
       NODE_ENV: production
-      AUTH_SERVICE_PORT: 3001
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dexa_wfh?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dexa_wfh}?schema=public
       JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
-    ports:
-      - "3001:3001"
+      UPLOADS_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
 
+  auth-service:
+    <<: *app-image
+    container_name: dexa-wfh-auth-service
+    restart: unless-stopped
+    working_dir: /app/apps/auth-service
+    command: ["node", "dist/main.js"]
+    environment:
+      NODE_ENV: production
+      AUTH_SERVICE_PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dexa_wfh}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dexa-wfh-internal-service-key}
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      <<: *service-healthcheck
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+
   employee-service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        APP_DIR: apps/employee-service
+    <<: *app-image
     container_name: dexa-wfh-employee-service
+    restart: unless-stopped
+    working_dir: /app/apps/employee-service
+    command: ["node", "dist/main.js"]
     environment:
       NODE_ENV: production
       EMPLOYEE_SERVICE_PORT: 3002
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dexa_wfh?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dexa_wfh}?schema=public
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       API_GATEWAY_URL: http://api-gateway:3000
       JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
@@ -83,44 +128,60 @@ services:
       - "3002:3002"
     volumes:
       - uploads_data:/app/uploads
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      <<: *service-healthcheck
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
   attendance-service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        APP_DIR: apps/attendance-service
+    <<: *app-image
     container_name: dexa-wfh-attendance-service
+    restart: unless-stopped
+    working_dir: /app/apps/attendance-service
+    command: ["node", "dist/main.js"]
     environment:
       NODE_ENV: production
       ATTENDANCE_SERVICE_PORT: 3003
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dexa_wfh?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dexa_wfh}?schema=public
       JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dexa-wfh-internal-service-key}
     ports:
       - "3003:3003"
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3003/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      <<: *service-healthcheck
     depends_on:
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
 
   log-service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        APP_DIR: apps/log-service
+    <<: *app-image
     container_name: dexa-wfh-log-service
+    restart: unless-stopped
+    working_dir: /app/apps/log-service
+    command: ["node", "dist/main.js"]
     environment:
       NODE_ENV: production
       LOG_SERVICE_PORT: 3004
       MONGODB_URI: mongodb://mongodb:27017/dexa_wfh_logs
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dexa-wfh-internal-service-key}
     ports:
       - "3004:3004"
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3004/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      <<: *service-healthcheck
     depends_on:
       mongodb:
         condition: service_healthy
@@ -128,12 +189,11 @@ services:
         condition: service_healthy
 
   api-gateway:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        APP_DIR: apps/api-gateway
+    <<: *app-image
     container_name: dexa-wfh-api-gateway
+    restart: unless-stopped
+    working_dir: /app/apps/api-gateway
+    command: ["node", "dist/main.js"]
     environment:
       NODE_ENV: production
       API_GATEWAY_PORT: 3000
@@ -150,41 +210,59 @@ services:
       - "3000:3000"
     volumes:
       - uploads_data:/app/uploads
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      <<: *service-healthcheck
     depends_on:
-      - auth-service
-      - employee-service
-      - attendance-service
-      - log-service
+      auth-service:
+        condition: service_healthy
+      employee-service:
+        condition: service_healthy
+      attendance-service:
+        condition: service_healthy
+      log-service:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   web-employee:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        APP_DIR: apps/web-employee
+    <<: *app-image
     container_name: dexa-wfh-web-employee
+    restart: unless-stopped
+    working_dir: /app/apps/web-employee
     command: ["pnpm", "preview"]
     environment:
-      VITE_API_GATEWAY_URL: http://localhost:3000
+      NODE_ENV: production
+      VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL:-http://localhost:3000}
     ports:
       - "5173:5173"
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      <<: *service-healthcheck
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_healthy
 
   web-admin:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        APP_DIR: apps/web-admin
+    <<: *app-image
     container_name: dexa-wfh-web-admin
+    restart: unless-stopped
+    working_dir: /app/apps/web-admin
     command: ["pnpm", "preview"]
     environment:
-      VITE_API_GATEWAY_URL: http://localhost:3000
+      NODE_ENV: production
+      VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL:-http://localhost:3000}
     ports:
       - "5174:5174"
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:5174').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      <<: *service-healthcheck
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_healthy
 
 volumes:
   postgres_data:
