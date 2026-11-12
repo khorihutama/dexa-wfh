@@ -35,6 +35,10 @@ function getPastMonthDates(todayJakarta: string): string[] {
 
 type SeedPasswordKey = 'SEED_ADMIN_PASSWORD' | 'SEED_EMPLOYEE_PASSWORD';
 
+function isDemoSeedingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (env.SEED_DEMO_USERS ?? '').trim().toLowerCase() === 'true';
+}
+
 function resolveSeedPassword(envKey: SeedPasswordKey): string {
   const provided = process.env[envKey]?.trim();
   if (provided) {
@@ -46,6 +50,11 @@ function resolveSeedPassword(envKey: SeedPasswordKey): string {
 }
 
 export async function runSeed() {
+  if (!isDemoSeedingEnabled()) {
+    console.log('[seed] SEED_DEMO_USERS is not "true"; skipping demo accounts.');
+    return;
+  }
+
   const config = loadEnvConfig();
   await ensureDefaultAvatars(config.UPLOADS_DIR);
 

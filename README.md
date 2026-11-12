@@ -99,7 +99,7 @@ cp .env.example .env              # opsional: semua variabel punya default untuk
 docker compose up -d postgres mongodb rabbitmq
 pnpm install
 pnpm db:migrate                   # prisma migrate deploy
-pnpm db:seed                      # akun demo + riwayat absensi bulan berjalan
+SEED_DEMO_USERS=true pnpm db:seed  # akun demo + riwayat absensi (opt-in)
 pnpm build                        # build semua paket/aplikasi (turbo)
 pnpm lint && pnpm typecheck && pnpm test
 
@@ -132,9 +132,11 @@ pnpm --filter @dexa-wfh/web-admin dev      # :5174
 | `5672` / `15672` | RabbitMQ | AMQP / management UI |
 | `27017` | MongoDB | Audit log |
 
-## Akun Seed
+## Akun Seed (opt-in)
 
-`pnpm db:seed` (atau service `db-init` di Compose) mengisi akun berikut beserta riwayat absensi contoh bulan berjalan. Password tidak disimpan di repo: seed membacanya dari environment.
+Service `db-init` selalu menjalankan migrasi, tetapi **akun demo hanya dibuat bila `SEED_DEMO_USERS=true`**. Tanpa variabel itu, database tetap kosong (belum ada akun login) dan `db-init` tetap selesai dengan exit 0. Seed tidak pernah aktif secara default, termasuk saat `NODE_ENV=production`.
+
+Jika diaktifkan, akun berikut dibuat beserta riwayat absensi contoh bulan berjalan. Password tidak disimpan di repo: seed membacanya dari environment.
 
 | Peran | Email | Password | Posisi |
 | :--- | :--- | :--- | :--- |
@@ -146,12 +148,12 @@ Langkah seed singkat:
 
 ```bash
 cp .env.example .env
-# isi SEED_ADMIN_PASSWORD dan SEED_EMPLOYEE_PASSWORD di .env dengan pilihan Anda
+# set SEED_DEMO_USERS=true, lalu isi SEED_ADMIN_PASSWORD dan SEED_EMPLOYEE_PASSWORD
 docker compose up --build -d
 docker compose ps        # db-init harus "exited (0)", service lain healthy
 ```
 
-Compose meneruskan kedua variabel itu ke container `db-init`. Kalau dibiarkan kosong, seed membuat password acak dan mencetaknya sekali di log (`docker compose logs db-init`); simpan nilainya karena tidak tersimpan di repo. Untuk seed dari host, jalankan `pnpm db:seed` dengan variabel yang sama di shell.
+Compose meneruskan ketiga variabel itu ke container `db-init`. Kalau password dibiarkan kosong, seed membuat password acak dan mencetaknya sekali di log (`docker compose logs db-init`); simpan nilainya karena tidak tersimpan di repo. Untuk seed dari host, jalankan `SEED_DEMO_USERS=true pnpm db:seed` dengan variabel lain sudah tersedia di shell.
 
 Email memakai domain reserved `example.com` supaya bukan alamat perusahaan nyata. Ganti `JWT_SECRET`, `INTERNAL_API_KEY`, dan password akun sebelum dipakai di lingkungan nyata.
 

@@ -79,6 +79,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       SEED_EMPLOYEE_PASSWORD: ${SEED_EMPLOYEE_PASSWORD:-}
+      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-false}
       UPLOADS_DIR: /app/uploads
     volumes:
       - uploads_data:/app/uploads
