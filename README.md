@@ -134,15 +134,26 @@ pnpm --filter @dexa-wfh/web-admin dev      # :5174
 
 ## Akun Seed
 
-`pnpm db:seed` (atau service `db-init` di Compose) mengisi akun berikut beserta riwayat absensi contoh bulan berjalan:
+`pnpm db:seed` (atau service `db-init` di Compose) mengisi akun berikut beserta riwayat absensi contoh bulan berjalan. Password tidak disimpan di repo: seed membacanya dari environment.
 
 | Peran | Email | Password | Posisi |
 | :--- | :--- | :--- | :--- |
-| `ADMIN` | `admin@example.com` | `REDACTED_ADMIN_PASSWORD` | HRD Manager |
-| `EMPLOYEE` | `budi.santoso@example.com` | `REDACTED_EMPLOYEE_PASSWORD` | Senior Software Engineer |
-| `EMPLOYEE` | `siti.rahma@example.com` | `REDACTED_EMPLOYEE_PASSWORD` | Product Designer |
+| `ADMIN` | `admin@example.com` | `SEED_ADMIN_PASSWORD` | HRD Manager |
+| `EMPLOYEE` | `budi.santoso@example.com` | `SEED_EMPLOYEE_PASSWORD` | Senior Software Engineer |
+| `EMPLOYEE` | `siti.rahma@example.com` | `SEED_EMPLOYEE_PASSWORD` | Product Designer |
 
-Kredensial ini hanya untuk pengembangan/demo. Ganti `JWT_SECRET`, `INTERNAL_API_KEY`, dan password akun sebelum dipakai di lingkungan nyata.
+Langkah seed singkat:
+
+```bash
+cp .env.example .env
+# isi SEED_ADMIN_PASSWORD dan SEED_EMPLOYEE_PASSWORD di .env dengan pilihan Anda
+docker compose up --build -d
+docker compose ps        # db-init harus "exited (0)", service lain healthy
+```
+
+Compose meneruskan kedua variabel itu ke container `db-init`. Kalau dibiarkan kosong, seed membuat password acak dan mencetaknya sekali di log (`docker compose logs db-init`); simpan nilainya karena tidak tersimpan di repo. Untuk seed dari host, jalankan `pnpm db:seed` dengan variabel yang sama di shell.
+
+Email memakai domain reserved `example.com` supaya bukan alamat perusahaan nyata. Ganti `JWT_SECRET`, `INTERNAL_API_KEY`, dan password akun sebelum dipakai di lingkungan nyata.
 
 ## Endpoint API Gateway (`http://localhost:3000`)
 

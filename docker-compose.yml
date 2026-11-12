@@ -77,6 +77,8 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-dexa_wfh}?schema=public
       JWT_SECRET: ${JWT_SECRET:-dexa-wfh-dev-jwt-secret-key-2026}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_EMPLOYEE_PASSWORD: ${SEED_EMPLOYEE_PASSWORD:-}
       UPLOADS_DIR: /app/uploads
     volumes:
       - uploads_data:/app/uploads

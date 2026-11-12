@@ -14,7 +14,7 @@ test('Auth Service AppModule, controllers, and service are defined', () => {
 });
 
 test('AuthService login, token validation, and password change logic work with mocked Prisma', async () => {
-  const passwordHash = await hashPassword('REDACTED_EMPLOYEE_PASSWORD');
+  const passwordHash = await hashPassword('TestPassw0rd!');
   const now = new Date('2026-11-11T01:00:00.000Z');
   const mockEmployee = {
     id: 'emp-budi',
@@ -49,7 +49,7 @@ test('AuthService login, token validation, and password change logic work with m
 
   const loginResult = await authService.login({
     email: 'Budi.Santoso@example.com',
-    password: 'REDACTED_EMPLOYEE_PASSWORD',
+    password: 'TestPassw0rd!',
   });
   assert.ok(loginResult.accessToken);
   assert.equal(loginResult.user.email, 'budi.santoso@example.com');
@@ -71,7 +71,7 @@ test('AuthService login, token validation, and password change logic work with m
 
   const pwdUpdate = await authService.updatePassword(
     { userId: 'emp-budi' },
-    { currentPassword: 'REDACTED_EMPLOYEE_PASSWORD', newPassword: 'NewPassword456!' },
+    { currentPassword: 'TestPassw0rd!', newPassword: 'NewPassword456!' },
   );
   assert.equal(pwdUpdate.updated, true);
 

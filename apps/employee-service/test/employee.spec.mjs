@@ -15,7 +15,7 @@ test('Employee Service AppModule, controllers, and service are defined', () => {
 
 test('EmployeeService profile updates emit events and Admin CRUD prevents self-deletion', async () => {
   const now = new Date('2026-11-11T01:00:00.000Z');
-  const pwdHash = await hashPassword('REDACTED_EMPLOYEE_PASSWORD');
+  const pwdHash = await hashPassword('TestPassw0rd!');
   const store = new Map();
   store.set('emp-1', {
     id: 'emp-1',
@@ -80,7 +80,7 @@ test('EmployeeService profile updates emit events and Admin CRUD prevents self-d
     {
       phone: '081999888777',
       photoUrl: 'https://example.com/budi-new.png',
-      currentPassword: 'REDACTED_EMPLOYEE_PASSWORD',
+      currentPassword: 'TestPassw0rd!',
       newPassword: 'UpdatedPass123!',
     },
   );

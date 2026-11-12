@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrismaClient, Role, AttendanceStatus } from '@prisma/client';
@@ -32,6 +33,18 @@ function getPastMonthDates(todayJakarta: string): string[] {
   return candidateDays.slice(0, 4).map((d) => `${yearMonth}-${String(d).padStart(2, '0')}`);
 }
 
+type SeedPasswordKey = 'SEED_ADMIN_PASSWORD' | 'SEED_EMPLOYEE_PASSWORD';
+
+function resolveSeedPassword(envKey: SeedPasswordKey): string {
+  const provided = process.env[envKey]?.trim();
+  if (provided) {
+    return provided;
+  }
+  const generated = randomBytes(12).toString('base64url');
+  console.log(`[seed] ${envKey} is not set; generated password: ${generated}`);
+  return generated;
+}
+
 export async function runSeed() {
   const config = loadEnvConfig();
   await ensureDefaultAvatars(config.UPLOADS_DIR);
@@ -46,8 +59,8 @@ export async function runSeed() {
 
   try {
     const [adminPasswordHash, employeePasswordHash] = await Promise.all([
-      hashPassword('REDACTED_ADMIN_PASSWORD'),
-      hashPassword('REDACTED_EMPLOYEE_PASSWORD'),
+      hashPassword(resolveSeedPassword('SEED_ADMIN_PASSWORD')),
+      hashPassword(resolveSeedPassword('SEED_EMPLOYEE_PASSWORD')),
     ]);
 
     const admin = await prisma.employee.upsert({
