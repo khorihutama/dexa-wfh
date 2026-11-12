@@ -88,7 +88,10 @@ const envGatewayUrl = (
   import.meta as unknown as { env?: Record<string, string | undefined> }
 ).env?.VITE_API_GATEWAY_URL;
 
-export const API_BASE_URL = (envGatewayUrl || 'http://localhost:3000').replace(/\/$/, '');
+export const API_BASE_URL = (envGatewayUrl || `http://${window.location.hostname}:3000`).replace(
+  /\/$/,
+  '',
+);
 export const TOKEN_STORAGE_KEY = 'dexa_wfh_admin_token';
 
 export function getStoredToken(): string | null {
@@ -144,6 +147,15 @@ export class ApiError extends Error {
   }
 }
 
+async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    // Network/CORS failure: fetch rejects with a raw "Failed to fetch" TypeError
+    throw new ApiError('Gagal terhubung ke server. Periksa koneksi Anda lalu coba lagi.', 0);
+  }
+}
+
 async function parseApiResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') || '';
   const isJson = contentType.includes('application/json');
@@ -173,7 +185,7 @@ function jsonHeaders(token: string): Record<string, string> {
 }
 
 export async function loginAdmin(email: string, password: string): Promise<LoginResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  const response = await safeFetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: email.trim(), password }),
@@ -182,7 +194,7 @@ export async function loginAdmin(email: string, password: string): Promise<Login
 }
 
 export async function fetchAdminProfile(token: string): Promise<EmployeeProfile> {
-  const response = await fetch(`${API_BASE_URL}/employees/me`, {
+  const response = await safeFetch(`${API_BASE_URL}/employees/me`, {
     method: 'GET',
     headers: jsonHeaders(token),
   });
@@ -197,7 +209,7 @@ export async function fetchEmployees(
   if (search && search.trim()) {
     params.set('search', search.trim());
   }
-  const response = await fetch(`${API_BASE_URL}/employees?${params.toString()}`, {
+  const response = await safeFetch(`${API_BASE_URL}/employees?${params.toString()}`, {
     method: 'GET',
     headers: jsonHeaders(token),
   });
@@ -226,7 +238,7 @@ export async function createEmployee(
   token: string,
   payload: EmployeeFormPayload,
 ): Promise<EmployeeProfile> {
-  const response = await fetch(`${API_BASE_URL}/employees`, {
+  const response = await safeFetch(`${API_BASE_URL}/employees`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: employeeFormData(payload, true),
@@ -239,7 +251,7 @@ export async function updateEmployee(
   id: string,
   payload: EmployeeFormPayload,
 ): Promise<EmployeeProfile> {
-  const response = await fetch(`${API_BASE_URL}/employees/${encodeURIComponent(id)}`, {
+  const response = await safeFetch(`${API_BASE_URL}/employees/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}` },
     body: employeeFormData(payload, false),
@@ -251,7 +263,7 @@ export async function deleteEmployee(
   token: string,
   id: string,
 ): Promise<{ deleted: true; id: string; email: string }> {
-  const response = await fetch(`${API_BASE_URL}/employees/${encodeURIComponent(id)}`, {
+  const response = await safeFetch(`${API_BASE_URL}/employees/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: jsonHeaders(token),
   });
@@ -267,7 +279,7 @@ export async function fetchAttendanceReport(
   if (params.to) searchParams.set('to', params.to);
   if (params.search && params.search.trim()) searchParams.set('search', params.search.trim());
 
-  const response = await fetch(`${API_BASE_URL}/attendances?${searchParams.toString()}`, {
+  const response = await safeFetch(`${API_BASE_URL}/attendances?${searchParams.toString()}`, {
     method: 'GET',
     headers: jsonHeaders(token),
   });

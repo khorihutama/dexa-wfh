@@ -83,7 +83,10 @@ const envGatewayUrl = (
   import.meta as unknown as { env?: Record<string, string | undefined> }
 ).env?.VITE_API_GATEWAY_URL;
 
-export const API_BASE_URL = (envGatewayUrl || 'http://localhost:3000').replace(/\/$/, '');
+export const API_BASE_URL = (envGatewayUrl || `http://${window.location.hostname}:3000`).replace(
+  /\/$/,
+  '',
+);
 
 export const TOKEN_STORAGE_KEY = 'dexa_wfh_employee_token';
 
@@ -140,6 +143,15 @@ export class ApiError extends Error {
   }
 }
 
+async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    // Network/CORS failure: fetch rejects with a raw "Failed to fetch" TypeError
+    throw new ApiError('Gagal terhubung ke server. Periksa koneksi Anda lalu coba lagi.', 0);
+  }
+}
+
 async function parseApiResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') || '';
   const isJson = contentType.includes('application/json');
@@ -165,7 +177,7 @@ export async function loginEmployee(
   email: string,
   password: string,
 ): Promise<LoginResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  const response = await safeFetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -177,7 +189,7 @@ export async function loginEmployee(
 }
 
 export async function fetchMyProfile(token: string): Promise<EmployeeProfile> {
-  const response = await fetch(`${API_BASE_URL}/employees/me`, {
+  const response = await safeFetch(`${API_BASE_URL}/employees/me`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -204,7 +216,7 @@ export async function updateMyProfile(
       formData.append('newPassword', payload.newPassword);
     }
 
-    const response = await fetch(`${API_BASE_URL}/employees/me`, {
+    const response = await safeFetch(`${API_BASE_URL}/employees/me`, {
       method: 'PATCH',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -229,7 +241,7 @@ export async function updateMyProfile(
     jsonBody.newPassword = payload.newPassword;
   }
 
-  const response = await fetch(`${API_BASE_URL}/employees/me`, {
+  const response = await safeFetch(`${API_BASE_URL}/employees/me`, {
     method: 'PATCH',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -248,7 +260,7 @@ export async function uploadMyPhoto(
   const formData = new FormData();
   formData.append('photo', file);
 
-  const response = await fetch(`${API_BASE_URL}/employees/me/photo`, {
+  const response = await safeFetch(`${API_BASE_URL}/employees/me/photo`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -262,7 +274,7 @@ export async function uploadMyPhoto(
 export async function fetchTodayAttendance(
   token: string,
 ): Promise<TodayAttendanceStatus> {
-  const response = await fetch(`${API_BASE_URL}/attendances/today`, {
+  const response = await safeFetch(`${API_BASE_URL}/attendances/today`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -275,7 +287,7 @@ export async function fetchTodayAttendance(
 export async function checkInAttendance(
   token: string,
 ): Promise<AttendanceActionResponse> {
-  const response = await fetch(`${API_BASE_URL}/attendances/check-in`, {
+  const response = await safeFetch(`${API_BASE_URL}/attendances/check-in`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -290,7 +302,7 @@ export async function checkInAttendance(
 export async function checkOutAttendance(
   token: string,
 ): Promise<AttendanceActionResponse> {
-  const response = await fetch(`${API_BASE_URL}/attendances/check-out`, {
+  const response = await safeFetch(`${API_BASE_URL}/attendances/check-out`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -316,7 +328,7 @@ export async function fetchMyAttendanceSummary(
   const queryString = searchParams.toString();
   const url = `${API_BASE_URL}/attendances/me${queryString ? `?${queryString}` : ''}`;
 
-  const response = await fetch(url, {
+  const response = await safeFetch(url, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,
