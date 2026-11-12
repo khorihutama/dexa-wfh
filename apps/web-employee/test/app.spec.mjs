@@ -45,8 +45,9 @@ test('LoginView and PortalLayout provide semantic landmarks and 3 main employee 
   assert.match(loginSource, /<main/);
   assert.match(loginSource, /<footer/);
   assert.match(loginSource, /<h1/);
-  assert.match(loginSource, /budi\.santoso@dexagroup\.com/);
-  assert.match(loginSource, /siti\.rahma@dexagroup\.com/);
+  assert.match(loginSource, /nama\.karyawan@example\.com/);
+  assert.doesNotMatch(loginSource, /DEMO_EMPLOYEES/);
+  assert.doesNotMatch(loginSource, /Akun Demo/);
 
   assert.match(layoutSource, /Profil Karyawan/);
   assert.match(layoutSource, /Absen Masuk & Pulang/);

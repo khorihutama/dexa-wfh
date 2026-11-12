@@ -39,15 +39,15 @@ test('api.ts covers admin login, employee CRUD, and attendance monitoring endpoi
   assert.match(apiSource, /dexa_wfh_admin_token/);
 });
 
-test('LoginView renders admin login landmarks, demo HRD account, and error feedback', () => {
+test('LoginView renders admin login landmarks without hardcoded demo credentials', () => {
   const loginSource = readSrc('components/LoginView.tsx');
   assert.match(loginSource, /<header/);
   assert.match(loginSource, /<main/);
   assert.match(loginSource, /<footer/);
   assert.match(loginSource, /<h1/);
-  assert.match(loginSource, /admin@dexagroup\.com/);
-  assert.match(loginSource, /REDACTED_ADMIN_PASSWORD/);
-  assert.match(loginSource, /Isi Akun Demo Admin/);
+  assert.match(loginSource, /admin@example\.com/);
+  assert.doesNotMatch(loginSource, /DEMO_ADMIN/);
+  assert.doesNotMatch(loginSource, /Akun demo/);
 });
 
 test('AdminLayout exposes the two admin menus plus logout and socket status', () => {

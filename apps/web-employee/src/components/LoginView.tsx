@@ -8,29 +8,14 @@ export interface LoginViewProps {
   onClearError: () => void;
 }
 
-const DEMO_EMPLOYEES = [
-  {
-    name: 'Budi Santoso',
-    position: 'Senior Backend Engineer',
-    email: 'budi.santoso@example.com',
-    password: 'REDACTED_EMPLOYEE_PASSWORD',
-  },
-  {
-    name: 'Siti Rahma',
-    position: 'Product Designer',
-    email: 'siti.rahma@example.com',
-    password: 'REDACTED_EMPLOYEE_PASSWORD',
-  },
-];
-
 export const LoginView: React.FC<LoginViewProps> = ({
   onLogin,
   loading,
   error,
   onClearError,
 }) => {
-  const [email, setEmail] = useState('budi.santoso@example.com');
-  const [password, setPassword] = useState('REDACTED_EMPLOYEE_PASSWORD');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -49,13 +34,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
     }
 
     await onLogin(trimmedEmail, password);
-  };
-
-  const handleFillDemo = (demoEmail: string, demoPassword: string) => {
-    onClearError();
-    setValidationError(null);
-    setEmail(demoEmail);
-    setPassword(demoPassword);
   };
 
   const activeError = validationError || error;
@@ -122,7 +100,7 @@ export const LoginView: React.FC<LoginViewProps> = ({
           <section className="lg:col-span-6">
             <Card
               title="Masuk ke Akun Karyawan"
-              subtitle="Gunakan email perusahaan (@example.com) dan kata sandi Anda"
+              subtitle="Gunakan email perusahaan dan kata sandi Anda"
             >
               {activeError ? (
                 <div className="mb-4">
@@ -175,31 +153,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   {loading ? 'Memverifikasi Akun...' : 'Masuk Portal Karyawan'}
                 </Button>
               </form>
-
-              <div className="mt-6 border-t border-slate-200 pt-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Akun Demo Pengujian Cepat
-                </p>
-                <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
-                  {DEMO_EMPLOYEES.map((demo) => (
-                    <button
-                      key={demo.email}
-                      type="button"
-                      onClick={() => handleFillDemo(demo.email, demo.password)}
-                      disabled={loading}
-                      className="flex min-h-[44px] flex-col items-start justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left transition-colors hover:border-red-300 hover:bg-red-50/40 focus:outline-none focus:ring-2 focus:ring-red-600"
-                    >
-                      <span className="text-xs font-semibold text-slate-900">
-                        {demo.name}
-                      </span>
-                      <span className="text-[11px] text-slate-600">{demo.position}</span>
-                      <span className="mt-0.5 font-mono text-[11px] text-red-700">
-                        {demo.email}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </Card>
           </section>
         </div>

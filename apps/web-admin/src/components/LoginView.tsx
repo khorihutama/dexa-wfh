@@ -8,19 +8,14 @@ export interface LoginViewProps {
   onClearError: () => void;
 }
 
-const DEMO_ADMIN = {
-  email: 'admin@example.com',
-  password: 'REDACTED_ADMIN_PASSWORD',
-};
-
 export const LoginView: React.FC<LoginViewProps> = ({
   onLogin,
   loading,
   error,
   onClearError,
 }) => {
-  const [email, setEmail] = useState(DEMO_ADMIN.email);
-  const [password, setPassword] = useState(DEMO_ADMIN.password);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -144,28 +139,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
                   {loading ? 'Memverifikasi Akun...' : 'Masuk Portal Admin'}
                 </Button>
               </form>
-              <div className="mt-5 border-t border-slate-200 pt-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Akun demo untuk pengujian
-                </p>
-                <p className="mt-1 text-xs text-slate-600">
-                  {DEMO_ADMIN.email} dengan kata sandi {DEMO_ADMIN.password}
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => {
-                    setEmail(DEMO_ADMIN.email);
-                    setPassword(DEMO_ADMIN.password);
-                    setValidationError(null);
-                    onClearError();
-                  }}
-                  disabled={loading}
-                >
-                  Isi Akun Demo Admin
-                </Button>
-              </div>
             </Card>
           </section>
         </div>
