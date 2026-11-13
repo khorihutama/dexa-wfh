@@ -47,7 +47,7 @@ dexa-wfh/
 │   ├── tsconfig/            # Konfigurasi TypeScript bersama
 │   └── eslint-config/       # Konfigurasi ESLint flat bersama
 ├── uploads/avatars/         # Penyimpanan avatar karyawan (volume Docker: uploads_data)
-├── docker-compose.yml       # Orkestrasi seluruh stack + seed otomatis (service db-init)
+├── docker-compose.yml       # Orkestrasi seluruh stack + migrasi otomatis (seed demo opt-in lewat db-init)
 ├── Dockerfile               # Multi-stage Node 22 + pnpm (berjalan sebagai user non-root `node`)
 └── .github/workflows/ci.yml # CI: lint, typecheck, test, build
 ```
@@ -61,7 +61,7 @@ dexa-wfh/
 ## Menjalankan seluruh stack dengan Docker Compose
 
 ```bash
-docker compose up --build -d      # build image, jalankan semua service + seed database
+docker compose up --build -d      # build + jalankan service; db-init migrasi, akun demo hanya bila SEED_DEMO_USERS=true
 docker compose ps                 # semua service harus "healthy" / db-init "exited (0)"
 docker compose logs -f api-gateway
 docker compose down               # hentikan stack (tambahkan -v untuk menghapus volume data)
@@ -78,7 +78,7 @@ Setelah stack hidup:
 - API Gateway: <http://localhost:3000> (Swagger UI: <http://localhost:3000/docs>)
 - RabbitMQ management: <http://localhost:15672> (`guest` / `guest`)
 
-`VITE_API_GATEWAY_URL` dibaca saat **build** image frontend. Nilai default di dalam kode adalah `http://localhost:3000`, jadi build standar sudah cocok untuk pemakaian lokal. Untuk alamat gateway lain, set variabel itu sebelum `docker compose build`.
+`VITE_API_GATEWAY_URL` dibaca saat **build** frontend. Kalau tidak diisi, `API_BASE_URL` memakai `http://<hostname halaman>:3000` (`apps/web-admin/src/api.ts:91`, `apps/web-employee/src/api.ts:86`), jadi build standar benar untuk `localhost` maupun akses lewat IP LAN selama gateway ada di port 3000 pada host yang sama. Bundle Vite membekukan nilai itu saat build; `Dockerfile` tidak menerima build arg VITE dan Compose hanya memberi env **runtime** untuk `vite preview`, sehingga env runtime tidak mengubah bundle. Untuk gateway di host/port lain, nilai harus masuk saat build (misalnya build arg atau mekanisme env build yang dibaca Vite); image Compose saat ini belum meneruskannya, jadi override itu belum tersedia lewat `docker compose build`.
 
 ### Akses dari perangkat lain di jaringan lokal (LAN)
 
@@ -167,6 +167,7 @@ Email memakai domain reserved `example.com` supaya bukan alamat perusahaan nyata
 - **Karyawan (`/employees/me`):**
   - `GET /employees/me` - profil karyawan yang login
   - `PATCH /employees/me` - ubah nomor HP, foto (`multipart/form-data` atau `photoUrl`), dan/atau password milik sendiri
+  - `PUT /employees/me` - alias update profil yang sama dengan `PATCH` (handler meneruskan ke logika PATCH)
   - `POST /employees/me/photo` - unggah avatar (`jpg/jpeg/png/webp`, maks 5MB)
   - `GET /uploads/avatars/:filename` - akses publik avatar
 - **CRUD Karyawan (`/employees`, peran `ADMIN`):**
